@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "127060376242",
+    "project_id": "friendmap-53fe9",
+    "storage_bucket": "friendmap-53fe9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:127060376242:android:81d6729cfb1b2d702367ab",
+        "android_client_info": {
+          "package_name": "com.example.friendmap"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC08n8-diaOxOKu_Pp13H1xjm85jdPEIh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
