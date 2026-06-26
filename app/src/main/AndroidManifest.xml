@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-<<<<<<< HEAD
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-=======
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
->>>>>>> friend/master
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -22,49 +16,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FriendMap">
-<<<<<<< HEAD
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCM1JB6nMRlW6q9f6D0lXfkravJUbaEvqc"/>
+
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-=======
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
->>>>>>> friend/master
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-<<<<<<< HEAD
         <activity android:name=".MainActivity" android:exported="false"/>
         <activity android:name=".LoginActivity" android:exported="false"/>
         <activity android:name=".RegisterActivity" android:exported="false"/>
         <activity android:name=".ProfileActivity" android:exported="false"/>
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCM1JB6nMRlW6q9f6D0lXfkravJUbaEvqc"/>
-=======
-        <activity
-            android:name=".AddFriendActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".FriendsActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".ChatActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".FriendsActivity" android:exported="false"/>
+        <activity android:name=".AddFriendActivity" android:exported="false"/>
+        <activity android:name=".ChatActivity" android:exported="false"/>
 
         <service
             android:name=".MyFirebaseMessagingService"
@@ -74,7 +46,5 @@
             </intent-filter>
         </service>
 
->>>>>>> friend/master
     </application>
-
 </manifest>

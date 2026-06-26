@@ -64,10 +64,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // Đang ở bản đồ rồi
                 return true;
             } else if (id == R.id.nav_friends) {
-                Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, FriendsActivity.class));
                 return true;
             } else if (id == R.id.nav_chat) {
-                Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, ChatActivity.class));
                 return true;
             } else if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, ProfileActivity.class));
