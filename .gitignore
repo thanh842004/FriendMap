@@ -13,4 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+<<<<<<< HEAD
 google-services.json
+=======
+>>>>>>> friend/master
