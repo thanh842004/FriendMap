@@ -9,10 +9,14 @@ public class User {
     private double latitude;
     private double longitude;
 
+    // BỔ SUNG CHÍ MẠNG: Đồng bộ chính xác với Firestore và trạng thái Online/Offline
+    private String hoTen;
+    private boolean isOnline;
+
     // Hàm khởi tạo không đối số bắt buộc phải có để Firestore tự động ép kiểu (Mapping)
     public User() {}
 
-    public User(String uid, String username, String displayName, String phone, String email, double latitude, double longitude) {
+    public User(String uid, String username, String displayName, String phone, String email, double latitude, double longitude, String hoTen, boolean isOnline) {
         this.uid = uid;
         this.username = username;
         this.displayName = displayName;
@@ -20,6 +24,8 @@ public class User {
         this.email = email;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.hoTen = hoTen;
+        this.isOnline = isOnline;
     }
 
     // Getter và Setter
@@ -43,4 +49,25 @@ public class User {
 
     public double getLongitude() { return longitude; }
     public void setLongitude(double longitude) { this.longitude = longitude; }
+
+    // BỔ SUNG GETTER / SETTER CHO CÁC BIẾN MỚI
+    public String getHoTen() { return hoTen; }
+    public void setHoTen(String hoTen) { this.hoTen = hoTen; }
+
+    public boolean isOnline() { return isOnline; }
+    public void setOnline(boolean online) { isOnline = online; }
+
+    // Hàm so sánh trùng lặp bọc an toàn cho RecyclerView ngăn trùng item bạn bè khi cập nhật vòng lặp
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return uid != null ? uid.equals(user.uid) : user.uid == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return uid != null ? uid.hashCode() : 0;
+    }
 }

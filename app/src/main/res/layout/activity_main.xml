@@ -5,8 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Bản đồ chiếm toàn màn hình -->
-    <fragment
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/mapFragment"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="0dp"
@@ -16,7 +15,19 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Nút định vị bản thân -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabDirections"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:src="@android:drawable/ic_menu_directions"
+        android:backgroundTint="#2E7D32"
+        android:visibility="gone"
+        android:contentDescription="Nút chỉ đường tới vị trí bạn bè"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/fabMyLocation"/>
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabMyLocation"
         android:layout_width="wrap_content"
@@ -25,10 +36,10 @@
         android:layout_marginBottom="80dp"
         android:src="@android:drawable/ic_menu_mylocation"
         android:backgroundTint="#1E88E5"
+        android:contentDescription="Nút định vị vị trí bản thân"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNav"/>
 
-    <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="0dp"

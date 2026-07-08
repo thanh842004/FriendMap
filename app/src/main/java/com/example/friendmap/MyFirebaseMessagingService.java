@@ -11,62 +11,91 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "FCM_Service";
     private static final String CHANNEL_ID = "friendmap_chats";
 
-    // Hàm tự động chạy khi có thông báo gửi đến máy
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        // Kiểm tra xem thông báo có chứa nội dung hiển thị không
+        // ĐỌC THÔNG BÁO THÔNG MINH: Đọc cả từ payload Notification hoặc payload Data ngầm
+        String title = "";
+        String body = "";
+
         if (remoteMessage.getNotification() != null) {
-            String title = remoteMessage.getNotification().getTitle();
-            String body = remoteMessage.getNotification().getBody();
+            title = remoteMessage.getNotification().getTitle();
+            body = remoteMessage.getNotification().getBody();
+        } else if (!remoteMessage.getData().isEmpty()) {
+            title = remoteMessage.getData().get("title");
+            body = remoteMessage.getData().get("body");
+        }
+
+        if (title != null && !title.isEmpty()) {
             sendNotification(title, body);
         }
     }
 
-    // Hàm sinh và hiển thị Notification lên thanh trạng thái của Android
     private void sendNotification(String title, String messageBody) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        // Tối ưu cờ PendingIntent bọc an toàn cập nhật dữ liệu liên tục
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder notificationBuilder =
                 new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(android.R.drawable.stat_notify_chat) // Icon nhỏ mặc định hệ thống
+                        .setSmallIcon(android.R.drawable.stat_notify_chat)
                         .setContentTitle(title)
                         .setContentText(messageBody)
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH);
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL); // Bật cả rung và chuông mặc định
 
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Kể từ Android 8.0 (Oreo) trở lên, bắt buộc phải khai báo Notification Channel
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                     "Tin nhắn FriendMap",
                     NotificationManager.IMPORTANCE_HIGH);
-            notificationManager.createNotificationChannel(channel);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
         }
 
-        notificationManager.notify(0, notificationBuilder.build());
+        if (notificationManager != null) {
+            // Dùng System.currentTimeMillis() làm ID để các thông báo sau không bị đè mất thông báo trước
+            notificationManager.notify((int) System.currentTimeMillis(), notificationBuilder.build());
+        }
     }
 
-    // Hàm tự động chạy khi thiết bị được cấp một mã Token mới từ Firebase
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
-        Log.d(TAG, "Refreshed token: " + token);
-        // Sau này bạn có thể gửi token này lên bảng 'users' của Firestore để định danh máy nhận thông báo
+        Log.d(TAG, "Mã Token FCM mới: " + token);
+
+        // ĐỒNG BỘ CHÍ MẠNG: Tự động đẩy Token lên Firestore để liên kết thiết bị nhận thông báo
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            Map<String, Object> tokenMap = new HashMap<>();
+            tokenMap.put("fcmToken", token);
+
+            FirebaseFirestore.getInstance().collection("users").document(uid)
+                    .update(tokenMap)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Đã cập nhật Token lên Firestore thành công."))
+                    .addOnFailureListener(e -> Log.e(TAG, "Lỗi cập nhật Token: " + e.getMessage()));
+        }
     }
 }

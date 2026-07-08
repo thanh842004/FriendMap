@@ -6,7 +6,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.google.firebase.auth.FirebaseAuth;
 import java.util.List;
 
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -17,18 +16,19 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private List<Message> messageList;
     private String currentUserId;
 
-    public MessageAdapter(List<Message> messageList) {
+    // ĐÃ SỬA: Ép truyền currentUserId thật từ Activity sang để đồng bộ tuyệt đối
+    public MessageAdapter(List<Message> messageList, String currentUserId) {
         this.messageList = messageList;
-        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
-            this.currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        } else {
-            this.currentUserId = "USER_SAMPLE_123";
-        }
+        this.currentUserId = currentUserId;
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (messageList.get(position).getSenderId().equals(currentUserId)) {
+        // Tránh lỗi crash nếu danh sách rỗng hoặc phần tử bị rỗng ngầm
+        if (messageList == null || messageList.get(position) == null) return TYPE_RECEIVED;
+
+        String senderId = messageList.get(position).getSenderId();
+        if (senderId != null && senderId.equals(currentUserId)) {
             return TYPE_SENT;
         } else {
             return TYPE_RECEIVED;
@@ -49,7 +49,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (messageList == null || position >= messageList.size()) return;
+
         Message message = messageList.get(position);
+        if (message == null) return;
 
         // Kiểm tra xem tin nhắn là text thường hay là emoji trêu chọc
         String displayContent = message.getText();
@@ -57,16 +60,27 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             displayContent = "Đã thả trêu bạn: " + message.getEmojiTease();
         }
 
+        // Nếu cả text và emoji đều trống (tránh lỗi giao diện trống)
+        if (displayContent == null || displayContent.isEmpty()) {
+            displayContent = "...";
+        }
+
         if (holder instanceof SentViewHolder) {
-            ((SentViewHolder) holder).txtMessage.setText(displayContent);
-        } else {
-            ((ReceivedViewHolder) holder).txtMessage.setText(displayContent);
+            SentViewHolder sentHolder = (SentViewHolder) holder;
+            if (sentHolder.txtMessage != null) {
+                sentHolder.txtMessage.setText(displayContent);
+            }
+        } else if (holder instanceof ReceivedViewHolder) {
+            ReceivedViewHolder receivedHolder = (ReceivedViewHolder) holder;
+            if (receivedHolder.txtMessage != null) {
+                receivedHolder.txtMessage.setText(displayContent);
+            }
         }
     }
 
     @Override
     public int getItemCount() {
-        return messageList.size();
+        return messageList != null ? messageList.size() : 0;
     }
 
     static class SentViewHolder extends RecyclerView.ViewHolder {

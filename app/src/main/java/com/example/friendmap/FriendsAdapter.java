@@ -1,5 +1,7 @@
 package com.example.friendmap;
 
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,27 +29,38 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        // ĐÃ CẬP NHẬT: Kiểm tra phần tử trong danh sách an toàn tránh NullPointerException
         if (friendsList == null || position >= friendsList.size()) return;
 
         User friend = friendsList.get(position);
 
         if (friend != null) {
-            // Kiểm tra an toàn cho TextView Tên hiển thị
-            if (holder.txtDisplayName != null) {
-                if (friend.getDisplayName() != null && !friend.getDisplayName().trim().isEmpty()) {
-                    holder.txtDisplayName.setText(friend.getDisplayName());
-                } else if (friend.getUsername() != null) {
-                    holder.txtDisplayName.setText(friend.getUsername());
-                } else {
-                    holder.txtDisplayName.setText("Người dùng FriendMap");
-                }
+            // Xác định tên hiển thị chính xác theo trường dữ liệu thực tế hoTen hoặc displayName
+            String finalName = "Người dùng FriendMap";
+            if (friend.getHoTen() != null && !friend.getHoTen().trim().isEmpty()) {
+                finalName = friend.getHoTen();
+            } else if (friend.getDisplayName() != null && !friend.getDisplayName().trim().isEmpty()) {
+                finalName = friend.getDisplayName();
+            } else if (friend.getUsername() != null) {
+                finalName = friend.getUsername();
             }
 
-            // Kiểm tra an toàn cho TextView Số điện thoại
+            if (holder.txtDisplayName != null) {
+                holder.txtDisplayName.setText(finalName);
+            }
+
             if (holder.txtPhone != null) {
                 holder.txtPhone.setText(friend.getPhone() != null ? friend.getPhone() : "Chưa cập nhật SĐT");
             }
+
+            // ĐỒNG BỘ TIN NHẮN CHÍ MẠNG: Bắt sự kiện click vào item bạn bè để mở màn hình Chat thật
+            final String exactName = finalName;
+            holder.itemView.setOnClickListener(v -> {
+                Context context = v.getContext();
+                Intent intent = new Intent(context, ChatActivity.class);
+                intent.putExtra("PARTNER_ID", friend.getUid()); // Gửi ID thật của đối phương sang
+                intent.putExtra("PARTNER_NAME", exactName);     // Gửi tên thật sang
+                context.startActivity(intent);
+            });
         }
     }
 
@@ -61,7 +74,6 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            // Ánh xạ View an toàn
             txtDisplayName = itemView.findViewById(R.id.txtFriendDisplayName);
             txtPhone = itemView.findViewById(R.id.txtFriendPhone);
         }

@@ -51,21 +51,29 @@ public class AddFriendActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
 
-        // FIX CHÍ MẠNG: Bọc kiểm tra FirebaseAuth an toàn, tránh lỗi NullPointerException khi lấy DisplayName
+        // FIX CHÍ MẠNG: Kiểm tra và lấy tên người gửi lời mời kết bạn (Ưu tiên đọc từ profile Firestore nếu có, hoặc Auth)
         if (auth.getCurrentUser() != null) {
             currentUserId = auth.getCurrentUser().getUid();
-            try {
-                if (auth.getCurrentUser().getDisplayName() != null && !auth.getCurrentUser().getDisplayName().trim().isEmpty()) {
-                    currentUserName = auth.getCurrentUser().getDisplayName();
-                } else if (auth.getCurrentUser().getEmail() != null) {
-                    currentUserName = auth.getCurrentUser().getEmail().split("@")[0];
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Lỗi phân tích dữ liệu User Auth: " + e.getMessage());
+
+            // Lấy tên mặc định an toàn từ Auth trước
+            if (auth.getCurrentUser().getDisplayName() != null && !auth.getCurrentUser().getDisplayName().trim().isEmpty()) {
+                currentUserName = auth.getCurrentUser().getDisplayName();
+            } else if (auth.getCurrentUser().getEmail() != null) {
+                currentUserName = auth.getCurrentUser().getEmail().split("@")[0];
             }
+
+            // Đồng bộ lấy hoTen thật từ Firestore của chính mình để khi gửi lời mời, máy đối phương hiện đúng tên tiếng Việt
+            db.collection("users").document(currentUserId).get().addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    String hoTen = documentSnapshot.getString("hoTen");
+                    if (hoTen != null && !hoTen.isEmpty()) {
+                        currentUserName = hoTen;
+                    }
+                }
+            });
         }
 
-        // 3. Sự kiện bấm nút Tìm kiếm (Thêm kiểm tra null cho View)
+        // 3. Sự kiện bấm nút Tìm kiếm
         if (btnSearch != null) {
             btnSearch.setOnClickListener(v -> {
                 if (edtSearchQuery == null) return;
@@ -78,7 +86,7 @@ public class AddFriendActivity extends AppCompatActivity {
             });
         }
 
-        // 4. Sự kiện bấm nút Gửi lời mời kết bạn (Thêm kiểm tra null cho View)
+        // 4. Sự kiện bấm nút Gửi lời mời kết bạn
         if (btnSendRequest != null) {
             btnSendRequest.setOnClickListener(v -> {
                 if (foundUser != null) {
@@ -105,6 +113,11 @@ public class AddFriendActivity extends AppCompatActivity {
                             try {
                                 User user = document.toObject(User.class);
                                 if (user.getUid() == null) user.setUid(document.getId());
+
+                                // Ép đọc bổ sung trường hoTen từ doc phòng hờ model User chưa cập nhật biến
+                                if (user.getHoTen() == null || user.getHoTen().isEmpty()) {
+                                    user.setHoTen(document.getString("hoTen"));
+                                }
 
                                 if (!user.getUid().equals(currentUserId)) {
                                     foundUser = user;
@@ -133,6 +146,11 @@ public class AddFriendActivity extends AppCompatActivity {
                                 User user = document.toObject(User.class);
                                 if (user.getUid() == null) user.setUid(document.getId());
 
+                                // Ép đọc bổ sung trường hoTen từ doc phòng hờ model User chưa cập nhật biến
+                                if (user.getHoTen() == null || user.getHoTen().isEmpty()) {
+                                    user.setHoTen(document.getString("hoTen"));
+                                }
+
                                 if (!user.getUid().equals(currentUserId)) {
                                     foundUser = user;
                                     displaySearchResult(user);
@@ -149,12 +167,24 @@ public class AddFriendActivity extends AppCompatActivity {
                 });
     }
 
-    // Hiển thị kết quả lên CardView
+    // ĐỒNG BỘ CHÍ MẠNG: Hiển thị kết quả lên CardView dựa trên trường hoTen tiếng Việt thực tế
     private void displaySearchResult(User user) {
         if (txtSearchStatus != null) txtSearchStatus.setText("Đã tìm thấy kết quả:");
-        if (txtResultName != null) txtResultName.setText(user.getDisplayName() != null ? user.getDisplayName() : user.getUsername());
+
+        // Luồng kiểm tra ưu tiên trường hoTen -> displayName -> username tránh bị rỗng tên hiển thị
+        String finalName = "Người dùng";
+        if (user.getHoTen() != null && !user.getHoTen().trim().isEmpty()) {
+            finalName = user.getHoTen();
+        } else if (user.getDisplayName() != null && !user.getDisplayName().trim().isEmpty()) {
+            finalName = user.getDisplayName();
+        } else if (user.getUsername() != null && !user.getUsername().trim().isEmpty()) {
+            finalName = user.getUsername();
+        }
+
+        if (txtResultName != null) txtResultName.setText(finalName);
         if (txtResultPhone != null) txtResultPhone.setText(user.getPhone() != null ? user.getPhone() : "Chưa cập nhật SĐT");
         if (cardSearchResult != null) cardSearchResult.setVisibility(View.VISIBLE);
+
         if (btnSendRequest != null) {
             btnSendRequest.setText("Kết bạn");
             btnSendRequest.setEnabled(true);
@@ -186,7 +216,7 @@ public class AddFriendActivity extends AppCompatActivity {
 
                     Map<String, Object> request = new HashMap<>();
                     request.put("senderId", currentUserId);
-                    request.put("senderName", currentUserName);
+                    request.put("senderName", currentUserName); // Sẽ mang giá trị hoTen chuẩn vừa đồng bộ ở trên
                     request.put("receiverId", targetUser.getUid());
                     request.put("status", "pending");
                     request.put("timestamp", com.google.firebase.Timestamp.now());
