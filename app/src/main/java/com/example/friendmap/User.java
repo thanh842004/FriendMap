@@ -8,6 +8,7 @@ public class User {
     private String email;
     private double latitude;
     private double longitude;
+    private String avatarBase64;
 
     // BỔ SUNG CHÍ MẠNG: Đồng bộ chính xác với Firestore và trạng thái Online/Offline
     private String hoTen;
@@ -16,7 +17,13 @@ public class User {
     // Hàm khởi tạo không đối số bắt buộc phải có để Firestore tự động ép kiểu (Mapping)
     public User() {}
 
-    public User(String uid, String username, String displayName, String phone, String email, double latitude, double longitude, String hoTen, boolean isOnline) {
+    public User(String uid, String username, String displayName,
+                String phone, String email,
+                double latitude, double longitude,
+                String hoTen,
+                boolean isOnline,
+                String avatarBase64) {
+
         this.uid = uid;
         this.username = username;
         this.displayName = displayName;
@@ -26,6 +33,7 @@ public class User {
         this.longitude = longitude;
         this.hoTen = hoTen;
         this.isOnline = isOnline;
+        this.avatarBase64 = avatarBase64;
     }
 
     // Getter và Setter
@@ -56,6 +64,12 @@ public class User {
 
     public boolean isOnline() { return isOnline; }
     public void setOnline(boolean online) { isOnline = online; }
+    public String getAvatarBase64() {
+        return avatarBase64;
+    }
+    public void setAvatarBase64(String avatarBase64) {
+        this.avatarBase64 = avatarBase64;
+    }
 
     // Hàm so sánh trùng lặp bọc an toàn cho RecyclerView ngăn trùng item bạn bè khi cập nhật vòng lặp
     @Override

@@ -71,10 +71,22 @@
                         android:id="@+id/ivAvatar"
                         android:layout_width="100dp"
                         android:layout_height="100dp"
-                        android:src="@android:drawable/ic_menu_myplaces"
                         android:background="#1A2744"
-                        android:padding="20dp"
-                        app:tint="#1E88E5" />
+                        android:scaleType="centerCrop"
+                        android:adjustViewBounds="true"
+                        android:clipToOutline="true"
+                        android:src="@android:drawable/ic_menu_myplaces"
+                        android:tint="@null"/>
+
+                    <!-- Nút camera đổi ảnh -->
+                    <ImageButton
+                        android:id="@+id/btnChangeAvatar"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_gravity="bottom|end"
+                        android:src="@android:drawable/ic_menu_camera"
+                        android:background="#1E88E5"
+                        android:padding="4dp"/>
 
                 </FrameLayout>
 

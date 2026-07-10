@@ -1,21 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:gravity="end"
     android:padding="8dp">
 
-    <TextView
-        android:id="@+id/txtMessageSent"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@android:drawable/toast_frame"
-        android:backgroundTint="#2196F3"
-        android:textColor="#FFFFFF"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp"
-        android:textSize="16sp"
-        android:maxWidth="260dp"
-        android:text="Tin nhắn của tôi"/>
+        android:gravity="end|bottom"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/txtMessageSent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="260dp"
+            android:padding="10dp"
+            android:textColor="#FFFFFF"
+            android:background="@android:drawable/toast_frame"
+            android:backgroundTint="#2196F3"/>
+
+        <ImageView
+            android:id="@+id/imgAvatarSent"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_menu_myplaces"
+            android:scaleType="centerCrop"/>
+
+    </LinearLayout>
+
 </LinearLayout>
