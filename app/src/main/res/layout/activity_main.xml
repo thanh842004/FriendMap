@@ -2,8 +2,10 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:ignore="HardcodedText,MissingTranslation,Typos">
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/mapFragment"
@@ -15,6 +17,69 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <androidx.cardview.widget.CardView
+        android:id="@+id/layoutMarkerEmojiTease"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone"
+        app:cardCornerRadius="25dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/fabMyLocation">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp">
+
+            <TextView
+                android:id="@+id/btnTeaseFire"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="🔥"
+                android:textSize="24sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+            <TextView
+                android:id="@+id/btnTeaseLaugh"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="😂"
+                android:textSize="24sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+            <TextView
+                android:id="@+id/btnTeaseGhost"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="👻"
+                android:textSize="24sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+            <TextView
+                android:id="@+id/btnTeasePoop"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="💩"
+                android:textSize="24sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabDirections"
         android:layout_width="wrap_content"
@@ -25,6 +90,7 @@
         android:backgroundTint="#2E7D32"
         android:visibility="gone"
         android:contentDescription="Nút chỉ đường tới vị trí bạn bè"
+        app:tint="#FFFFFF"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/fabMyLocation"/>
 
@@ -33,10 +99,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="80dp"
+        android:layout_marginBottom="16dp"
         android:src="@android:drawable/ic_menu_mylocation"
         android:backgroundTint="#1E88E5"
         android:contentDescription="Nút định vị vị trí bản thân"
+        app:tint="#FFFFFF"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNav"/>
 

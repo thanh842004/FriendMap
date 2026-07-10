@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
+    // Đã bỏ hoàn toàn các plugin lạ gây lỗi tìm kiếm nguồn
 }
 
 android {
@@ -39,6 +40,7 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
     implementation("androidx.cardview:cardview:1.0.0")
+
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth")
@@ -50,9 +52,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
-    // Glide - load ảnh
+    // GIẢI PHÁP TỐI ƯU CỐT LÕI: Dùng cấu trúc ép kiểu annotationProcessor thuần để tương thích hệ thống
     implementation("com.github.bumptech.glide:glide:4.16.0")
-
-    // Firebase Storage - lưu ảnh
-    implementation("com.google.firebase:firebase-storage")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 }
