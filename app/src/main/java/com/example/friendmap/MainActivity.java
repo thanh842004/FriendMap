@@ -4,13 +4,19 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -18,13 +24,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
-
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
@@ -33,6 +38,8 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
@@ -47,13 +54,17 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.util.Base64;
 
-@SuppressWarnings({"Convert2MethodRef", "RedundantSuppression", "SpellCheckingInspection", "UnusedPRM"})
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "MainActivity_GPS";
@@ -69,8 +80,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     LatLng selectedFriendLatLng = null;
 
     final HashMap<String, Marker> friendMarkers = new HashMap<>();
+    final HashMap<String, Circle> friendCircles = new HashMap<>();
+    final HashMap<String, Boolean> friendOnlineStatus = new HashMap<>();
+    final HashMap<String, Handler> pulseHandlers = new HashMap<>();
+    final HashMap<String, Runnable> pulseRunnables = new HashMap<>();
+
     final List<String> friendIds = new ArrayList<>();
     final HashMap<String, String> friendNamesCache = new HashMap<>();
+    final HashMap<String, String> friendAvatarCache = new HashMap<>();
 
     private ListenerRegistration firestoreListener;
     private final List<ValueEventListener> realtimeListeners = new ArrayList<>();
@@ -80,10 +97,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private boolean isFirstZoom = true;
 
-    // ĐÃ SỬA DỨT ĐIỂM SẬP APP: Chuyển kiểu dữ liệu sang CardView để đồng bộ hoàn toàn với layout XML
     CardView layoutMarkerEmojiTease;
     String selectedFriendId = null;
     DatabaseReference teaseRef;
+
+    EditText etQuickMessage;
+    ImageButton btnSendQuickMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +120,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         fabDirections = findViewById(R.id.fabDirections);
         layoutMarkerEmojiTease = findViewById(R.id.layoutMarkerEmojiTease);
+        etQuickMessage = findViewById(R.id.etQuickMessage);
+        btnSendQuickMessage = findViewById(R.id.btnSendQuickMessage);
 
         SupportMapFragment mapFragment = (SupportMapFragment)
                 getSupportFragmentManager().findFragmentById(R.id.mapFragment);
@@ -113,16 +134,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (fabDirections != null) {
             fabDirections.setOnClickListener(v -> {
                 if (selectedFriendLatLng != null) {
-                    String mapUri = "google.navigation:q=" + selectedFriendLatLng.latitude + "," + selectedFriendLatLng.longitude + "&mode=d";
+                    String mapUri = "google.navigation:q=" + selectedFriendLatLng.latitude
+                            + "," + selectedFriendLatLng.longitude + "&mode=d";
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(mapUri));
                     intent.setPackage("com.google.android.apps.maps");
                     if (intent.resolveActivity(getPackageManager()) != null) {
                         startActivity(intent);
                     } else {
-                        String webUri = "https://www.google.com/maps/dir/?api=1&destination=" + selectedFriendLatLng.latitude + "," + selectedFriendLatLng.longitude;
+                        String webUri = "https://www.google.com/maps/dir/?api=1&destination="
+                                + selectedFriendLatLng.latitude + "," + selectedFriendLatLng.longitude;
                         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(webUri)));
                     }
                 }
+            });
+        }
+
+        if (btnSendQuickMessage != null) {
+            btnSendQuickMessage.setOnClickListener(v -> sendQuickMessage());
+        }
+
+        if (etQuickMessage != null) {
+            etQuickMessage.setOnEditorActionListener((v, actionId, event) -> {
+                if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                    sendQuickMessage();
+                    return true;
+                }
+                return false;
             });
         }
 
@@ -130,9 +167,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         bottomNav.setSelectedItemId(R.id.nav_map);
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_map) {
-                return true;
-            }
+            if (id == R.id.nav_map) return true;
 
             Intent intent = null;
             if (id == R.id.nav_friends) {
@@ -183,22 +218,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mMap.setOnMarkerClickListener(marker -> {
             selectedFriendLatLng = marker.getPosition();
-
+            selectedFriendId = null;
             for (Map.Entry<String, Marker> entry : friendMarkers.entrySet()) {
                 if (entry.getValue().getId().equals(marker.getId())) {
                     selectedFriendId = entry.getKey();
                     break;
                 }
             }
-
-            if (fabDirections != null) {
-                fabDirections.setVisibility(View.VISIBLE);
-            }
+            if (bottomNav != null) bottomNav.setVisibility(View.GONE);
+            if (fabDirections != null) fabDirections.setVisibility(View.VISIBLE);
             if (layoutMarkerEmojiTease != null && selectedFriendId != null) {
                 layoutMarkerEmojiTease.setVisibility(View.VISIBLE);
             }
             marker.showInfoWindow();
-            return false;
+            return true;
         });
 
         mMap.setOnMapClickListener(latLng -> {
@@ -210,6 +243,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 layoutMarkerEmojiTease.setVisibility(View.GONE);
                 selectedFriendId = null;
             }
+            if (bottomNav != null) bottomNav.setVisibility(View.VISIBLE);
         });
 
         if (ContextCompat.checkSelfPermission(this,
@@ -230,7 +264,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mMap.setMyLocationEnabled(true);
 
-        com.google.android.gms.location.LocationRequest locationRequest = new com.google.android.gms.location.LocationRequest.Builder(
+        LocationRequest locationRequest = new LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY, 4000)
                 .setMinUpdateIntervalMillis(2000)
                 .build();
@@ -241,11 +275,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Location location = locationResult.getLastLocation();
                 if (location != null) {
                     updateLocationToFirebase(location);
-
                     if (isFirstZoom) {
                         LatLng myLatLng = new LatLng(location.getLatitude(), location.getLongitude());
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLatLng, 15f));
                         isFirstZoom = false;
+                        showMyAvatarOnMap(myLatLng);
                     }
                 }
             }
@@ -265,7 +299,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         locationData.put("isOnline", true);
 
         locationRef.child(uid).setValue(locationData)
-                .addOnFailureListener(e -> Log.e(TAG, "Lỗi đẩy định vị lên Realtime: " + e.getMessage()));
+                .addOnFailureListener(e -> Log.e(TAG, "Lỗi đẩy định vị: " + e.getMessage()));
     }
 
     private void moveToMyLocation() {
@@ -280,21 +314,94 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    private void clearRealtimeListenersAnToan() {
-        if (realtimeListeners != null && listenedRefs != null) {
-            int listenerCount = Math.min(realtimeListeners.size(), listenedRefs.size());
-            for (int i = listenerCount - 1; i >= 0; i--) {
-                try {
-                    if (listenedRefs.get(i) != null && realtimeListeners.get(i) != null) {
-                        listenedRefs.get(i).removeEventListener(realtimeListeners.get(i));
+    // ✅ Hiệu ứng vòng tròn tỏa ra cho người online
+    private void startPulseEffect(String friendId, LatLng latLng) {
+        // Dừng hiệu ứng cũ nếu có
+        stopPulseEffect(friendId);
+
+        Circle circle = mMap.addCircle(new CircleOptions()
+                .center(latLng)
+                .radius(30)
+                .strokeColor(Color.argb(200, 30, 136, 229))
+                .fillColor(Color.argb(40, 30, 136, 229))
+                .strokeWidth(3f));
+
+        friendCircles.put(friendId, circle);
+
+        Handler handler = new Handler(Looper.getMainLooper());
+        final float[] radius = {30f};
+        final int[] alpha = {200};
+        final boolean[] expanding = {true};
+
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!friendCircles.containsKey(friendId)) return;
+
+                Circle c = friendCircles.get(friendId);
+                if (c == null) return;
+
+                if (expanding[0]) {
+                    radius[0] += 5f;
+                    alpha[0] -= 8;
+                    if (radius[0] >= 120f) {
+                        expanding[0] = false;
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Lỗi giải phóng tại vị trí: " + i);
+                } else {
+                    radius[0] = 30f;
+                    alpha[0] = 200;
+                    expanding[0] = true;
                 }
+
+                c.setRadius(radius[0]);
+                c.setCenter(latLng);
+                c.setStrokeColor(Color.argb(Math.max(alpha[0], 0), 30, 136, 229));
+                c.setFillColor(Color.argb(Math.max(alpha[0] / 5, 0), 30, 136, 229));
+
+                handler.postDelayed(this, 50);
             }
-            realtimeListeners.clear();
-            listenedRefs.clear();
+        };
+
+        pulseHandlers.put(friendId, handler);
+        pulseRunnables.put(friendId, runnable);
+        handler.post(runnable);
+    }
+
+    private void stopPulseEffect(String friendId) {
+        Handler oldHandler = pulseHandlers.get(friendId);
+        Runnable oldRunnable = pulseRunnables.get(friendId);
+        if (oldHandler != null && oldRunnable != null) {
+            oldHandler.removeCallbacks(oldRunnable);
         }
+        pulseHandlers.remove(friendId);
+        pulseRunnables.remove(friendId);
+
+        Circle oldCircle = friendCircles.get(friendId);
+        if (oldCircle != null) {
+            oldCircle.remove();
+        }
+        friendCircles.remove(friendId);
+    }
+
+    private void stopAllPulseEffects() {
+        for (String friendId : new ArrayList<>(pulseHandlers.keySet())) {
+            stopPulseEffect(friendId);
+        }
+    }
+
+    private void clearRealtimeListenersAnToan() {
+        int count = Math.min(realtimeListeners.size(), listenedRefs.size());
+        for (int i = count - 1; i >= 0; i--) {
+            try {
+                if (listenedRefs.get(i) != null && realtimeListeners.get(i) != null) {
+                    listenedRefs.get(i).removeEventListener(realtimeListeners.get(i));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Lỗi giải phóng listener: " + i);
+            }
+        }
+        realtimeListeners.clear();
+        listenedRefs.clear();
     }
 
     private void loadFriendsAndShowOnMap() {
@@ -304,11 +411,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         firestoreListener = firestore.collection("friendRequests")
                 .whereEqualTo("status", "accepted")
                 .addSnapshotListener((value, error) -> {
-                    if (error != null) {
-                        Log.e(TAG, "Lỗi lắng nghe dữ liệu bạn bè từ Firestore: ", error);
-                        return;
-                    }
-                    if (value == null) return;
+                    if (error != null || value == null) return;
 
                     clearRealtimeListenersAnToan();
                     friendIds.clear();
@@ -324,8 +427,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
                     }
 
-                    Log.d(TAG, "Tìm thấy " + friendIds.size() + " người bạn đã liên kết thành công.");
-
                     for (String friendId : friendIds) {
                         DatabaseReference friendLocationRef = locationRef.child(friendId);
 
@@ -336,15 +437,28 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                                 Object latObj = snapshot.child("latitude").getValue();
                                 Object lngObj = snapshot.child("longitude").getValue();
+                                Object isOnlineObj = snapshot.child("isOnline").getValue();
+                                Object timestampObj = snapshot.child("timestamp").getValue();
+
                                 if (latObj == null || lngObj == null) return;
 
                                 double lat = Double.parseDouble(latObj.toString());
                                 double lng = Double.parseDouble(lngObj.toString());
                                 LatLng friendLatLng = new LatLng(lat, lng);
 
+                                boolean isOnline = false;
+                                if (isOnlineObj != null && Boolean.parseBoolean(isOnlineObj.toString())) {
+                                    if (timestampObj != null) {
+                                        long lastUpdate = Long.parseLong(timestampObj.toString());
+                                        isOnline = (System.currentTimeMillis() - lastUpdate) < 60000;
+                                    }
+                                }
+                                friendOnlineStatus.put(friendId, isOnline);
+                                final boolean finalIsOnline = isOnline;
+
                                 String name = friendNamesCache.get(friendId);
                                 if (name != null) {
-                                    updateMarkerOnMap(friendId, friendLatLng, name);
+                                    updateMarkerOnMap(friendId, friendLatLng, name, finalIsOnline);
                                 } else {
                                     firestore.collection("users").document(friendId).get()
                                             .addOnSuccessListener(userDoc -> {
@@ -353,21 +467,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                                     String hoTen = userDoc.getString("hoTen");
                                                     String displayName = userDoc.getString("displayName");
                                                     String username = userDoc.getString("username");
-
                                                     if (hoTen != null && !hoTen.isEmpty()) finalName = hoTen;
                                                     else if (displayName != null && !displayName.isEmpty()) finalName = displayName;
                                                     else if (username != null && !username.isEmpty()) finalName = username;
                                                 }
                                                 friendNamesCache.put(friendId, finalName);
-                                                updateMarkerOnMap(friendId, friendLatLng, finalName);
+                                                updateMarkerOnMap(friendId, friendLatLng, finalName, finalIsOnline);
                                             })
-                                            .addOnFailureListener(e -> updateMarkerOnMap(friendId, friendLatLng, "Bạn bè"));
+                                            .addOnFailureListener(e ->
+                                                    updateMarkerOnMap(friendId, friendLatLng, "Bạn bè", finalIsOnline));
                                 }
                             }
 
                             @Override
                             public void onCancelled(@NonNull DatabaseError error) {
-                                Log.e(TAG, "Lỗi kết nối Realtime DB: " + error.getMessage());
+                                Log.e(TAG, "Lỗi Realtime DB: " + error.getMessage());
                             }
                         };
 
@@ -378,10 +492,44 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 });
     }
 
-    private void updateMarkerOnMap(String friendId, LatLng latLng, String title) {
-        if (mMap == null) return;
+    private void showMyAvatarOnMap(LatLng myLatLng) {
+        if (mAuth.getCurrentUser() == null || mMap == null) return;
+        String myUid = mAuth.getCurrentUser().getUid();
 
-        String avatarUrl = "https://ui-avatars.com/api/?name=" + Uri.encode(title) + "&background=random&size=128&rounded=true";
+        firestore.collection("users").document(myUid).get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) return;
+
+                    String name = doc.getString("hoTen");
+                    if (name == null) name = doc.getString("displayName");
+                    if (name == null) name = "Tôi";
+                    final String finalName = name;
+
+                    String avatarBase64 = doc.getString("avatarBase64");
+
+                    Marker myMarker = mMap.addMarker(new MarkerOptions()
+                            .position(myLatLng)
+                            .title("Bạn: " + finalName));
+
+                    if (myMarker != null) {
+                        if (avatarBase64 != null && !avatarBase64.isEmpty()) {
+                            try {
+                                byte[] bytes = android.util.Base64.decode(avatarBase64, android.util.Base64.DEFAULT);
+                                Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                                if (bmp != null) {
+                                    Bitmap circular = makeCircularBitmap(bmp, 120);
+                                    myMarker.setIcon(BitmapDescriptorFactory.fromBitmap(circular));
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Lỗi load avatar bản thân: " + e.getMessage());
+                            }
+                        }
+                    }
+                });
+    }
+
+    private void updateMarkerOnMap(String friendId, LatLng latLng, String title, boolean isOnline) {
+        if (mMap == null) return;
 
         runOnUiThread(() -> {
             if (friendMarkers.containsKey(friendId)) {
@@ -389,44 +537,114 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (marker != null) {
                     marker.setPosition(latLng);
                     marker.setTitle(title);
-                    if (marker.isInfoWindowShown()) {
-                        marker.showInfoWindow();
+                }
+                Circle circle = friendCircles.get(friendId);
+                if (circle != null) circle.setCenter(latLng);
+                if (pulseHandlers.containsKey(friendId)) {
+                    stopPulseEffect(friendId);
+                    Boolean online = friendOnlineStatus.get(friendId);
+                    if (online != null && online) {
+                        startPulseEffect(friendId, latLng);
                     }
                 }
             } else {
-                Marker marker = mMap.addMarker(new MarkerOptions().position(latLng).title(title));
+                Marker marker = mMap.addMarker(new MarkerOptions()
+                        .position(latLng)
+                        .title(title));
                 if (marker != null) {
                     friendMarkers.put(friendId, marker);
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f));
 
-                    Glide.with(getApplicationContext())
-                            .asBitmap()
-                            .load(avatarUrl)
-                            .override(120, 120)
-                            .circleCrop()
-                            .into(new CustomTarget<Bitmap>() {
-                                @Override
-                                public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                                    if (friendMarkers.containsKey(friendId)) {
-                                        Marker targetMarker = friendMarkers.get(friendId);
-                                        if (targetMarker != null) {
-                                            targetMarker.setIcon(BitmapDescriptorFactory.fromBitmap(resource));
+                    // Kiểm tra cache avatar trước
+                    String cachedAvatar = friendAvatarCache.get(friendId);
+                    if (cachedAvatar != null && !cachedAvatar.isEmpty()) {
+                        setMarkerFromBase64(friendId, cachedAvatar, title);
+                    } else {
+                        // Lấy avatar từ Firestore
+                        firestore.collection("users").document(friendId).get()
+                                .addOnSuccessListener(userDoc -> {
+                                    if (userDoc.exists()) {
+                                        String avatarBase64 = userDoc.getString("avatarBase64");
+                                        if (avatarBase64 != null && !avatarBase64.isEmpty()) {
+                                            friendAvatarCache.put(friendId, avatarBase64);
+                                            setMarkerFromBase64(friendId, avatarBase64, title);
+                                        } else {
+                                            // Không có avatar → dùng ui-avatars
+                                            setMarkerFromUrl(friendId, title);
                                         }
+                                    } else {
+                                        setMarkerFromUrl(friendId, title);
                                     }
-                                }
-
-                                @Override
-                                public void onLoadCleared(@Nullable Drawable placeholder) {
-                                }
-                            });
+                                })
+                                .addOnFailureListener(e -> setMarkerFromUrl(friendId, title));
+                    }
                 }
+            }
+
+            if (isOnline) {
+                if (!pulseHandlers.containsKey(friendId)) {
+                    startPulseEffect(friendId, latLng);
+                }
+            } else {
+                stopPulseEffect(friendId);
             }
         });
     }
 
+    private void setMarkerFromBase64(String friendId, String base64, String title) {
+        try {
+            byte[] decodedBytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+            Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+            if (bitmap != null) {
+                Bitmap circular = makeCircularBitmap(bitmap, 120);
+                runOnUiThread(() -> {
+                    Marker m = friendMarkers.get(friendId);
+                    if (m != null) m.setIcon(BitmapDescriptorFactory.fromBitmap(circular));
+                });
+            }
+        } catch (Exception e) {
+            setMarkerFromUrl(friendId, title);
+        }
+    }
+
+    private void setMarkerFromUrl(String friendId, String title) {
+        String avatarUrl = "https://ui-avatars.com/api/?name=" + Uri.encode(title)
+                + "&background=random&size=128&rounded=true";
+        Glide.with(getApplicationContext())
+                .asBitmap()
+                .load(avatarUrl)
+                .override(120, 120)
+                .circleCrop()
+                .into(new CustomTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(@NonNull Bitmap resource,
+                                                @Nullable Transition<? super Bitmap> transition) {
+                        Marker m = friendMarkers.get(friendId);
+                        if (m != null) m.setIcon(BitmapDescriptorFactory.fromBitmap(resource));
+                    }
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {}
+                });
+    }
+
+    private Bitmap makeCircularBitmap(Bitmap bitmap, int size) {
+        Bitmap output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(output);
+        android.graphics.Paint paint = new android.graphics.Paint();
+        paint.setAntiAlias(true);
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint);
+        paint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN));
+        Bitmap scaled = Bitmap.createScaledBitmap(bitmap, size, size, true);
+        canvas.drawBitmap(scaled, 0, 0, paint);
+        return output;
+    }
+
     private void setupTeaseEmojiClickListeners() {
-        int[] emojiButtonIds = {R.id.btnTeaseFire, R.id.btnTeaseLaugh, R.id.btnTeaseGhost, R.id.btnTeasePoop};
-        String[] emojis = {"🔥", "😂", "👻", "💩"};
+        int[] emojiButtonIds = {
+                R.id.btnTeaseFire, R.id.btnTeaseLaugh,
+                R.id.btnTeaseGhost, R.id.btnTeasePoop,
+                R.id.btnTeaseHeart, R.id.btnTeaseWave
+        };
+        String[] emojis = {"🔥", "😂", "👻", "💩", "❤️", "👋"};
 
         for (int i = 0; i < emojiButtonIds.length; i++) {
             final String emoji = emojis[i];
@@ -436,7 +654,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (selectedFriendId == null || mAuth.getCurrentUser() == null) return;
 
                     String myUid = mAuth.getCurrentUser().getUid();
-
                     Map<String, Object> teaseData = new HashMap<>();
                     teaseData.put("fromUid", myUid);
                     teaseData.put("emoji", emoji);
@@ -444,12 +661,52 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     teaseRef.child(selectedFriendId).setValue(teaseData)
                             .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(MainActivity.this, "Đã thả " + emoji + " trêu bạn!", Toast.LENGTH_SHORT).show();
-                                if (layoutMarkerEmojiTease != null) layoutMarkerEmojiTease.setVisibility(View.GONE);
+                                Toast.makeText(MainActivity.this,
+                                        "Đã thả " + emoji + " trêu bạn!", Toast.LENGTH_SHORT).show();
+                                if (layoutMarkerEmojiTease != null) {
+                                    layoutMarkerEmojiTease.setVisibility(View.GONE);
+                                }
                             });
                 });
             }
         }
+    }
+
+    private void sendQuickMessage() {
+        if (selectedFriendId == null || mAuth.getCurrentUser() == null) return;
+        if (etQuickMessage == null) return;
+
+        String text = etQuickMessage.getText().toString().trim();
+        if (text.isEmpty()) return;
+
+        String myUid = mAuth.getCurrentUser().getUid();
+
+        // Tạo chatRoomId giống ChatActivity
+        List<String> ids = new ArrayList<>();
+        ids.add(myUid);
+        ids.add(selectedFriendId);
+        java.util.Collections.sort(ids);
+        String chatRoomId = ids.get(0) + "_" + ids.get(1);
+
+        Map<String, Object> message = new HashMap<>();
+        message.put("chatRoomId", chatRoomId);
+        message.put("senderId", myUid);
+        message.put("text", text);
+        message.put("emojiTease", "");
+        message.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
+
+        firestore.collection("messages")
+                .add(message)
+                .addOnSuccessListener(ref -> {
+                    Toast.makeText(this, "Đã gửi tin nhắn!", Toast.LENGTH_SHORT).show();
+                    etQuickMessage.setText("");
+                    if (layoutMarkerEmojiTease != null) {
+                        layoutMarkerEmojiTease.setVisibility(View.GONE);
+                    }
+                    if (bottomNav != null) bottomNav.setVisibility(View.VISIBLE);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Lỗi gửi tin: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
     private void listenForIncomingTeases() {
@@ -469,7 +726,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     String senderName = friendNamesCache.get(fromUid);
                     if (senderName == null) senderName = "Một người bạn";
 
-                    Toast.makeText(MainActivity.this, "⚡ " + senderName + " vừa thả " + emoji + " trêu chọc bạn trên bản đồ!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this,
+                            "⚡ " + senderName + " vừa thả " + emoji + " trêu chọc bạn!",
+                            Toast.LENGTH_LONG).show();
 
                     teaseRef.child(myUid).removeValue();
                 }
@@ -483,19 +742,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == LOCATION_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startLocationUpdates();
             } else {
                 Toast.makeText(this, "Cần quyền vị trí để hiển thị bản đồ!", Toast.LENGTH_SHORT).show();
-            }
-        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "Người dùng đã cấp quyền thông báo đẩy thành công.");
-            } else {
-                Toast.makeText(this, "Bạn sẽ không nhận được thông báo tin nhắn mới khi tắt ứng dụng!", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -506,14 +760,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             String uid = mAuth.getCurrentUser().getUid();
             locationRef.child(uid).child("isOnline").setValue(false);
         }
-
         if (fusedLocationClient != null && locationCallback != null) {
             fusedLocationClient.removeLocationUpdates(locationCallback);
         }
         if (firestoreListener != null) {
             firestoreListener.remove();
         }
-
+        stopAllPulseEffects();
         clearRealtimeListenersAnToan();
         super.onDestroy();
     }
