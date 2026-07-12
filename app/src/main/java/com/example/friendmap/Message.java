@@ -9,6 +9,10 @@ public class Message {
     private String senderId;
     private String text;
     private String emojiTease;
+    private boolean isRead;
+
+    public boolean isRead() { return isRead; }
+    public void setRead(boolean read) { isRead = read; }
 
     @ServerTimestamp
     private Date timestamp;

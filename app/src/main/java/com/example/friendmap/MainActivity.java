@@ -78,6 +78,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     FloatingActionButton fabDirections;
     LatLng selectedFriendLatLng = null;
+    Marker myOwnMarker = null;
+    String myAvatarBase64Cache = null;
 
     final HashMap<String, Marker> friendMarkers = new HashMap<>();
     final HashMap<String, Circle> friendCircles = new HashMap<>();
@@ -256,6 +258,60 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         loadFriendsAndShowOnMap();
+        listenForAvatarChanges();
+    }
+
+    private void listenForAvatarChanges() {
+        if (mAuth.getCurrentUser() == null) return;
+        String myUid = mAuth.getCurrentUser().getUid();
+
+        // Lắng nghe avatar bản thân thay đổi
+        firestore.collection("users").document(myUid)
+                .addSnapshotListener((doc, error) -> {
+                    if (error != null || doc == null || !doc.exists()) return;
+                    String newAvatar = doc.getString("avatarBase64");
+                    if (newAvatar != null && !newAvatar.equals(myAvatarBase64Cache)) {
+                        myAvatarBase64Cache = newAvatar;
+                        setMyMarkerAvatar(newAvatar);
+                    }
+                });
+
+        // Lắng nghe avatar bạn bè thay đổi
+        firestore.collection("friendRequests")
+                .whereEqualTo("status", "accepted")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot.getDocuments()) {
+                        String senderId = doc.getString("senderId");
+                        String receiverId = doc.getString("receiverId");
+
+                        String friendId = null;
+                        if (myUid.equals(senderId)) friendId = receiverId;
+                        else if (myUid.equals(receiverId)) friendId = senderId;
+
+                        if (friendId == null) continue;
+                        final String finalFriendId = friendId;
+
+                        firestore.collection("users").document(finalFriendId)
+                                .addSnapshotListener((userDoc, err) -> {
+                                    if (err != null || userDoc == null || !userDoc.exists()) return;
+
+                                    String newAvatar = userDoc.getString("avatarBase64");
+                                    String cachedAvatar = friendAvatarCache.get(finalFriendId);
+
+                                    // Chỉ cập nhật nếu avatar thay đổi
+                                    if (newAvatar != null && !newAvatar.equals(cachedAvatar)) {
+                                        friendAvatarCache.put(finalFriendId, newAvatar);
+
+                                        // Cập nhật marker trên bản đồ ngay lập tức
+                                        if (friendMarkers.containsKey(finalFriendId)) {
+                                            setMarkerFromBase64(finalFriendId, newAvatar,
+                                                    friendNamesCache.getOrDefault(finalFriendId, "Bạn bè"));
+                                        }
+                                    }
+                                });
+                    }
+                });
     }
 
     private void startLocationUpdates() {
@@ -280,6 +336,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLatLng, 15f));
                         isFirstZoom = false;
                         showMyAvatarOnMap(myLatLng);
+                    } else {
+                        // ✅ Cập nhật vị trí marker khi di chuyển
+                        LatLng myLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+                        if (myOwnMarker != null) {
+                            runOnUiThread(() -> myOwnMarker.setPosition(myLatLng));
+                        }
                     }
                 }
             }
@@ -496,36 +558,52 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (mAuth.getCurrentUser() == null || mMap == null) return;
         String myUid = mAuth.getCurrentUser().getUid();
 
+        if (myOwnMarker != null) {
+            // Chỉ di chuyển marker, không tạo mới
+            myOwnMarker.setPosition(myLatLng);
+            return;
+        }
+
+        // Tạo marker lần đầu
         firestore.collection("users").document(myUid).get()
                 .addOnSuccessListener(doc -> {
                     if (!doc.exists()) return;
 
                     String name = doc.getString("hoTen");
-                    if (name == null) name = doc.getString("displayName");
-                    if (name == null) name = "Tôi";
+                    if (name == null || name.isEmpty()) name = doc.getString("displayName");
+                    if (name == null || name.isEmpty()) name = "Tôi";
                     final String finalName = name;
 
-                    String avatarBase64 = doc.getString("avatarBase64");
+                    myAvatarBase64Cache = doc.getString("avatarBase64");
 
-                    Marker myMarker = mMap.addMarker(new MarkerOptions()
-                            .position(myLatLng)
-                            .title("Bạn: " + finalName));
+                    runOnUiThread(() -> {
+                        myOwnMarker = mMap.addMarker(new MarkerOptions()
+                                .position(myLatLng)
+                                .title("Bạn: " + finalName));
 
-                    if (myMarker != null) {
-                        if (avatarBase64 != null && !avatarBase64.isEmpty()) {
-                            try {
-                                byte[] bytes = android.util.Base64.decode(avatarBase64, android.util.Base64.DEFAULT);
-                                Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                                if (bmp != null) {
-                                    Bitmap circular = makeCircularBitmap(bmp, 120);
-                                    myMarker.setIcon(BitmapDescriptorFactory.fromBitmap(circular));
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Lỗi load avatar bản thân: " + e.getMessage());
-                            }
+                        if (myOwnMarker != null && myAvatarBase64Cache != null
+                                && !myAvatarBase64Cache.isEmpty()) {
+                            setMyMarkerAvatar(myAvatarBase64Cache);
                         }
+                    });
+                });
+    }
+
+    private void setMyMarkerAvatar(String base64) {
+        try {
+            byte[] bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+            Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            if (bmp != null) {
+                Bitmap circular = makeCircularBitmap(bmp, 120);
+                runOnUiThread(() -> {
+                    if (myOwnMarker != null) {
+                        myOwnMarker.setIcon(BitmapDescriptorFactory.fromBitmap(circular));
                     }
                 });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Lỗi set avatar bản thân: " + e.getMessage());
+        }
     }
 
     private void updateMarkerOnMap(String friendId, LatLng latLng, String title, boolean isOnline) {

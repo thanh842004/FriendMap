@@ -40,12 +40,10 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
         if (friendsList == null || position >= friendsList.size()) return;
 
         User friend = friendsList.get(position);
-
         if (friend == null) return;
 
         // Xác định tên hiển thị
         String finalName = "Người dùng FriendMap";
-
         if (friend.getHoTen() != null && !friend.getHoTen().trim().isEmpty()) {
             finalName = friend.getHoTen();
         } else if (friend.getDisplayName() != null && !friend.getDisplayName().trim().isEmpty()) {
@@ -66,23 +64,23 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
         // Hiển thị avatar
         loadAvatar(holder.imgAvatar, friend.getAvatarBase64());
 
+        // ✅ Gọi đếm tin nhắn chưa đọc NGAY KHI BIND — không phải khi click
+        String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance()
+                .getCurrentUser() != null ?
+                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : "";
+        loadUnreadCount(holder, friend.getUid(), currentUid);
+
         // Biến final để dùng trong lambda
         final String partnerName = finalName;
 
         // Mở màn hình chat
         holder.itemView.setOnClickListener(v -> {
-
             Context context = v.getContext();
-
             Intent intent = new Intent(context, ChatActivity.class);
-
             intent.putExtra("PARTNER_ID", friend.getUid());
             intent.putExtra("PARTNER_NAME", partnerName);
-
             context.startActivity(intent);
-
         });
-
     }
 
     @Override
@@ -114,11 +112,38 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
         }
     }
 
+    private void loadUnreadCount(ViewHolder holder, String friendUid, String currentUid) {
+        List<String> ids = new java.util.ArrayList<>();
+        ids.add(currentUid);
+        ids.add(friendUid);
+        java.util.Collections.sort(ids);
+        String chatRoomId = ids.get(0) + "_" + ids.get(1);
+
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("messages")
+                .whereEqualTo("chatRoomId", chatRoomId)
+                .whereEqualTo("isRead", false)
+                .whereEqualTo("senderId", friendUid)
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null || snapshots == null) return;
+                    int count = snapshots.size();
+                    if (holder.txtUnreadCount != null) {
+                        if (count > 0) {
+                            holder.txtUnreadCount.setVisibility(View.VISIBLE);
+                            holder.txtUnreadCount.setText(String.valueOf(count));
+                        } else {
+                            holder.txtUnreadCount.setVisibility(View.GONE);
+                        }
+                    }
+                });
+    }
+
     static class ViewHolder extends RecyclerView.ViewHolder {
 
         ImageView imgAvatar;
         TextView txtDisplayName;
         TextView txtPhone;
+        TextView txtUnreadCount;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -126,6 +151,7 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
             imgAvatar = itemView.findViewById(R.id.imgFriendAvatar);
             txtDisplayName = itemView.findViewById(R.id.txtFriendDisplayName);
             txtPhone = itemView.findViewById(R.id.txtFriendPhone);
+            txtUnreadCount = itemView.findViewById(R.id.txtUnreadCount);
         }
     }
 }

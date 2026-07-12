@@ -116,6 +116,7 @@ public class ChatActivity extends AppCompatActivity {
 
         // 5. Bắt đầu lắng nghe tin nhắn thời gian thực
         listenForMessages();
+        markMessagesAsRead();
 
         // 6. Xử lý gửi tin nhắn chữ thường
         if (btnSendMessage != null) {
@@ -188,6 +189,7 @@ public class ChatActivity extends AppCompatActivity {
         msgMap.put("text", text);
         msgMap.put("emojiTease", emoji);
         msgMap.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
+        msgMap.put("isRead", false);
 
         if (edtMessageInput != null) edtMessageInput.setText("");
         if (emojiPickerContainer != null) emojiPickerContainer.setVisibility(View.GONE);
@@ -207,5 +209,17 @@ public class ChatActivity extends AppCompatActivity {
             String selectedEmoji = emojiList[position];
             sendMessage("", selectedEmoji);
         });
+    }
+    private void markMessagesAsRead() {
+        db.collection("messages")
+                .whereEqualTo("chatRoomId", chatRoomId)
+                .whereEqualTo("isRead", false)
+                .whereNotEqualTo("senderId", currentUserId)
+                .get()
+                .addOnSuccessListener(snapshots -> {
+                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                        doc.getReference().update("isRead", true);
+                    }
+                });
     }
 }
