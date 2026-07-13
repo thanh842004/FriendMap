@@ -174,9 +174,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             Intent intent = null;
             if (id == R.id.nav_friends) {
                 intent = new Intent(this, FriendsActivity.class);
-            } else if (id == R.id.nav_chat) {
-                intent = new Intent(this, ChatActivity.class);
             } else if (id == R.id.nav_profile) {
+                // ĐỒNG BỘ: Đã loại bỏ hoàn toàn nhánh nav_chat cũ không dùng đến tại đây
                 intent = new Intent(this, ProfileActivity.class);
             }
 
@@ -265,7 +264,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (mAuth.getCurrentUser() == null) return;
         String myUid = mAuth.getCurrentUser().getUid();
 
-        // Lắng nghe avatar bản thân thay đổi
         firestore.collection("users").document(myUid)
                 .addSnapshotListener((doc, error) -> {
                     if (error != null || doc == null || !doc.exists()) return;
@@ -276,7 +274,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
 
-        // Lắng nghe avatar bạn bè thay đổi
         firestore.collection("friendRequests")
                 .whereEqualTo("status", "accepted")
                 .get()
@@ -299,11 +296,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     String newAvatar = userDoc.getString("avatarBase64");
                                     String cachedAvatar = friendAvatarCache.get(finalFriendId);
 
-                                    // Chỉ cập nhật nếu avatar thay đổi
                                     if (newAvatar != null && !newAvatar.equals(cachedAvatar)) {
                                         friendAvatarCache.put(finalFriendId, newAvatar);
 
-                                        // Cập nhật marker trên bản đồ ngay lập tức
                                         if (friendMarkers.containsKey(finalFriendId)) {
                                             setMarkerFromBase64(finalFriendId, newAvatar,
                                                     friendNamesCache.getOrDefault(finalFriendId, "Bạn bè"));
@@ -337,7 +332,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         isFirstZoom = false;
                         showMyAvatarOnMap(myLatLng);
                     } else {
-                        // ✅ Cập nhật vị trí marker khi di chuyển
                         LatLng myLatLng = new LatLng(location.getLatitude(), location.getLongitude());
                         if (myOwnMarker != null) {
                             runOnUiThread(() -> myOwnMarker.setPosition(myLatLng));
@@ -376,9 +370,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    // ✅ Hiệu ứng vòng tròn tỏa ra cho người online
     private void startPulseEffect(String friendId, LatLng latLng) {
-        // Dừng hiệu ứng cũ nếu có
         stopPulseEffect(friendId);
 
         Circle circle = mMap.addCircle(new CircleOptions()
@@ -559,12 +551,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String myUid = mAuth.getCurrentUser().getUid();
 
         if (myOwnMarker != null) {
-            // Chỉ di chuyển marker, không tạo mới
             myOwnMarker.setPosition(myLatLng);
             return;
         }
 
-        // Tạo marker lần đầu
         firestore.collection("users").document(myUid).get()
                 .addOnSuccessListener(doc -> {
                     if (!doc.exists()) return;
@@ -632,12 +622,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (marker != null) {
                     friendMarkers.put(friendId, marker);
 
-                    // Kiểm tra cache avatar trước
                     String cachedAvatar = friendAvatarCache.get(friendId);
                     if (cachedAvatar != null && !cachedAvatar.isEmpty()) {
                         setMarkerFromBase64(friendId, cachedAvatar, title);
                     } else {
-                        // Lấy avatar từ Firestore
                         firestore.collection("users").document(friendId).get()
                                 .addOnSuccessListener(userDoc -> {
                                     if (userDoc.exists()) {
@@ -646,7 +634,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                             friendAvatarCache.put(friendId, avatarBase64);
                                             setMarkerFromBase64(friendId, avatarBase64, title);
                                         } else {
-                                            // Không có avatar → dùng ui-avatars
                                             setMarkerFromUrl(friendId, title);
                                         }
                                     } else {
@@ -759,7 +746,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         String myUid = mAuth.getCurrentUser().getUid();
 
-        // Tạo chatRoomId giống ChatActivity
         List<String> ids = new ArrayList<>();
         ids.add(myUid);
         ids.add(selectedFriendId);

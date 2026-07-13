@@ -11,10 +11,7 @@
         android:icon="@android:drawable/ic_menu_manage"
         android:title="Bạn bè"/>
 
-    <item
-        android:id="@+id/nav_chat"
-        android:icon="@android:drawable/ic_menu_send"
-        android:title="Tin nhắn"/>
+
 
     <item
         android:id="@+id/nav_profile"
