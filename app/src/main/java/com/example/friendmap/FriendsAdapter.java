@@ -27,16 +27,13 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_user, parent, false);
-
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-
         if (friendsList == null || position >= friendsList.size()) return;
 
         User friend = friendsList.get(position);
@@ -64,7 +61,7 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
         // Hiển thị avatar
         loadAvatar(holder.imgAvatar, friend.getAvatarBase64());
 
-        // ✅ Gọi đếm tin nhắn chưa đọc NGAY KHI BIND — không phải khi click
+        // Đếm tin nhắn chưa đọc
         String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance()
                 .getCurrentUser() != null ?
                 com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : "";
@@ -89,30 +86,23 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
     }
 
     private void loadAvatar(ImageView imageView, String base64) {
-
         if (imageView == null) return;
-
         if (base64 == null || base64.isEmpty()) {
             imageView.setImageResource(android.R.drawable.sym_def_app_icon);
             return;
         }
-
         try {
-
             byte[] decoded = Base64.decode(base64, Base64.DEFAULT);
-
             Bitmap bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.length);
-
             imageView.setImageBitmap(bitmap);
-
         } catch (Exception e) {
-
             imageView.setImageResource(android.R.drawable.sym_def_app_icon);
-
         }
     }
 
     private void loadUnreadCount(ViewHolder holder, String friendUid, String currentUid) {
+        if (friendUid == null || currentUid == null || currentUid.isEmpty()) return;
+
         List<String> ids = new java.util.ArrayList<>();
         ids.add(currentUid);
         ids.add(friendUid);
@@ -127,19 +117,18 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
                 .addSnapshotListener((snapshots, error) -> {
                     if (error != null || snapshots == null) return;
                     int count = snapshots.size();
-                    if (holder.txtUnreadCount != null) {
-                        if (count > 0) {
-                            holder.txtUnreadCount.setVisibility(View.VISIBLE);
-                            holder.txtUnreadCount.setText(String.valueOf(count));
-                        } else {
-                            holder.txtUnreadCount.setVisibility(View.GONE);
-                        }
+                    if (holder.txtUnreadCount == null) return;
+                    if (count > 0) {
+                        holder.txtUnreadCount.setVisibility(View.VISIBLE);
+                        holder.txtUnreadCount.setText(String.valueOf(count));
+                    } else {
+                        holder.txtUnreadCount.setVisibility(View.GONE);
+                        holder.txtUnreadCount.setText("");
                     }
                 });
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-
         ImageView imgAvatar;
         TextView txtDisplayName;
         TextView txtPhone;
@@ -147,7 +136,6 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHold
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-
             imgAvatar = itemView.findViewById(R.id.imgFriendAvatar);
             txtDisplayName = itemView.findViewById(R.id.txtFriendDisplayName);
             txtPhone = itemView.findViewById(R.id.txtFriendPhone);
