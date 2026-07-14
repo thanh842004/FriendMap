@@ -75,8 +75,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     FirebaseAuth mAuth;
     BottomNavigationView bottomNav;
     FirebaseFirestore firestore;
-
-    FloatingActionButton fabDirections;
     LatLng selectedFriendLatLng = null;
     Marker myOwnMarker = null;
     String myAvatarBase64Cache = null;
@@ -105,6 +103,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     EditText etQuickMessage;
     ImageButton btnSendQuickMessage;
+    ImageButton btnDirectionsInPopup;
+    com.google.android.material.floatingactionbutton.FloatingActionButton fabSearchFriend;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,22 +119,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         teaseRef = FirebaseDatabase.getInstance("https://friendmap-53fe9-default-rtdb.asia-southeast1.firebasedatabase.app")
                 .getReference("teases");
         firestore = FirebaseFirestore.getInstance();
-
-        fabDirections = findViewById(R.id.fabDirections);
         layoutMarkerEmojiTease = findViewById(R.id.layoutMarkerEmojiTease);
         etQuickMessage = findViewById(R.id.etQuickMessage);
         btnSendQuickMessage = findViewById(R.id.btnSendQuickMessage);
+        btnDirectionsInPopup = findViewById(R.id.btnDirectionsInPopup);
+        fabSearchFriend = findViewById(R.id.fabSearchFriend);
 
-        SupportMapFragment mapFragment = (SupportMapFragment)
-                getSupportFragmentManager().findFragmentById(R.id.mapFragment);
-        if (mapFragment != null) {
-            mapFragment.getMapAsync(this);
-        }
-
-        findViewById(R.id.fabMyLocation).setOnClickListener(v -> moveToMyLocation());
-
-        if (fabDirections != null) {
-            fabDirections.setOnClickListener(v -> {
+// Nút chỉ đường trong popup
+        if (btnDirectionsInPopup != null) {
+            btnDirectionsInPopup.setOnClickListener(v -> {
                 if (selectedFriendLatLng != null) {
                     String mapUri = "google.navigation:q=" + selectedFriendLatLng.latitude
                             + "," + selectedFriendLatLng.longitude + "&mode=d";
@@ -150,6 +143,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             });
         }
+
+// Nút tìm kiếm bạn bè
+        if (fabSearchFriend != null) {
+            fabSearchFriend.setOnClickListener(v -> showFriendSearchDialog());
+        }
+
+        SupportMapFragment mapFragment = (SupportMapFragment)
+                getSupportFragmentManager().findFragmentById(R.id.mapFragment);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
+
+        findViewById(R.id.fabMyLocation).setOnClickListener(v -> moveToMyLocation());
 
         if (btnSendQuickMessage != null) {
             btnSendQuickMessage.setOnClickListener(v -> sendQuickMessage());
@@ -203,6 +209,54 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    private void showFriendSearchDialog() {
+        if (friendIds.isEmpty() && friendNamesCache.isEmpty()) {
+            Toast.makeText(this, "Chưa có bạn bè nào online!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Tạo danh sách tên bạn bè
+        List<String> names = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
+
+        for (String fId : friendIds) {
+            String name = friendNamesCache.get(fId);
+            if (name != null) {
+                names.add(name);
+                ids.add(fId);
+            }
+        }
+
+        if (names.isEmpty()) {
+            Toast.makeText(this, "Chưa có bạn bè nào!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] nameArray = names.toArray(new String[0]);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🔍 Tìm bạn bè trên bản đồ")
+                .setItems(nameArray, (dialog, which) -> {
+                    String friendId = ids.get(which);
+                    Marker marker = friendMarkers.get(friendId);
+                    if (marker != null) {
+                        // Zoom tới vị trí bạn bè
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                marker.getPosition(), 16f));
+                        marker.showInfoWindow();
+                        Toast.makeText(this,
+                                "Đang hiển thị vị trí của " + nameArray[which],
+                                Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this,
+                                nameArray[which] + " chưa chia sẻ vị trí!",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Đóng", null)
+                .show();
+    }
+
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
@@ -227,7 +281,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
             if (bottomNav != null) bottomNav.setVisibility(View.GONE);
-            if (fabDirections != null) fabDirections.setVisibility(View.VISIBLE);
             if (layoutMarkerEmojiTease != null && selectedFriendId != null) {
                 layoutMarkerEmojiTease.setVisibility(View.VISIBLE);
             }
@@ -236,15 +289,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         mMap.setOnMapClickListener(latLng -> {
-            if (fabDirections != null) {
-                fabDirections.setVisibility(View.GONE);
-                selectedFriendLatLng = null;
-            }
+
             if (layoutMarkerEmojiTease != null) {
                 layoutMarkerEmojiTease.setVisibility(View.GONE);
                 selectedFriendId = null;
             }
-            if (bottomNav != null) bottomNav.setVisibility(View.VISIBLE);
         });
 
         if (ContextCompat.checkSelfPermission(this,
@@ -757,6 +806,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         message.put("senderId", myUid);
         message.put("text", text);
         message.put("emojiTease", "");
+        message.put("isRead", false);
         message.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
 
         firestore.collection("messages")

@@ -18,7 +18,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Popup emoji + nhắn tin nhanh -->
+    <!-- Nút tìm kiếm bạn bè -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabSearchFriend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:src="@android:drawable/ic_menu_search"
+        android:backgroundTint="#1E88E5"
+        android:contentDescription="Tìm kiếm bạn bè"
+        app:tint="#FFFFFF"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+    <!-- Popup emoji + nhắn tin + chỉ đường -->
     <androidx.cardview.widget.CardView
         android:id="@+id/layoutMarkerEmojiTease"
         android:layout_width="0dp"
@@ -40,7 +54,7 @@
             android:orientation="vertical"
             android:padding="12dp">
 
-            <!-- Hàng emoji trêu chọc -->
+            <!-- Hàng emoji -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -122,19 +136,31 @@
 
             </LinearLayout>
 
-            <!-- Đường kẻ phân cách -->
+            <!-- Đường kẻ -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="#EEEEEE"
                 android:layout_marginBottom="10dp"/>
 
-            <!-- Ô nhắn tin nhanh -->
+            <!-- Ô nhắn tin + nút chỉ đường -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
+
+                <!-- Nút chỉ đường -->
+                <ImageButton
+                    android:id="@+id/btnDirectionsInPopup"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@android:drawable/ic_menu_directions"
+                    android:background="#2E7D32"
+                    android:padding="10dp"
+                    android:tint="#FFFFFF"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="Chỉ đường"/>
 
                 <EditText
                     android:id="@+id/etQuickMessage"
@@ -166,21 +192,6 @@
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
-
-    <!-- Nút chỉ đường -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabDirections"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="12dp"
-        android:src="@android:drawable/ic_menu_directions"
-        android:backgroundTint="#2E7D32"
-        android:visibility="gone"
-        android:contentDescription="Nút chỉ đường tới vị trí bạn bè"
-        app:tint="#FFFFFF"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/fabMyLocation"/>
 
     <!-- Nút định vị bản thân -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
